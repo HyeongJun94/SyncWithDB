@@ -1,0 +1,5 @@
+*.jpg
+credentials_drive.json
+credentials.json
+*.pickle
+*.zip

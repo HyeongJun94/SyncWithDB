@@ -1,14 +1,5 @@
 # -*- coding: utf-8 -*-
 
-# client ID
-# 340427676528-g5n3h1ct0dfhgn2afhh1m7mh9dua01me.apps.googleusercontent.com
-
-# clinet secret
-# LC8yu0q6dI3CihoPqYdgtluE
-
-# 남은 과제
-# 중복하는거 확인
-
 # related to google api 
 from __future__ import print_function
 import pickle

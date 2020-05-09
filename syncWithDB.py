@@ -25,7 +25,7 @@ DRIVE_SCOPES = ['https://www.googleapis.com/auth/drive']
 
 # The ID and range of a sample spreadsheet.
 SPREADSHEET_ID = ['1NMjHYDZc5s_EixE67UJA2gxSd0DQD-oQOkiYg6Gylz0','1QDwtP65qOb0owkzryC5QysGunG_-O7SjPcA1gwAJYWk']
-URL = ['http://54.180.127.176:8000/jeokSyeo/createBrewery','http://54.180.127.176:8000/jeokSyeo/createAlchol']
+URL = ['http://52.79.87.100:8000/jeokSyeo/createBrewery','http://52.79.87.100:8000/jeokSyeo/createAlchol']
 BASE_IMG_URL = 'https://jeoksyeo.s3.ap-northeast-2.amazonaws.com'
 BREWERY = 0
 ALCHOL = 1
@@ -42,6 +42,7 @@ def deleteImg(img_name):
   # print('dlete')
 
 def requestToServer(obj):
+  Log('request to server')
   response = requests.post(URL[WHICH], data = obj)
   res_json = json.loads(response.text)
   
@@ -70,7 +71,7 @@ def checkImageExist(img_path,img_name):
   
   return status
 
-def downloadImage(drive,img_name,img_url):
+def downloadImage(drive,img_name,img_url,width):
   image_id = img_url.split("?id=")[1]
   name = img_name + '.jpg'
   request = drive.get_media(fileId=image_id)
@@ -82,10 +83,13 @@ def downloadImage(drive,img_name,img_url):
     status, done = downloader.next_chunk()
 
   # 리사이즈 관련
-  # size = 500
-  # origin_img = Image.open(name)
-  # origin_img.thumbnail(size, Image.ANTIALIAS)
-  # origin_img.save("tmp.jpg","JPEG")    
+  origin_img = Image.open(name)
+  w_percent = (width/float(origin_img.size[0]))
+  height = int((float(origin_img.size[1])*float(w_percent)))
+  new_img = origin_img.resize((width,height),Image.ANTIALIAS)
+  new_img = new_img.convert("RGB")
+  new_img.save(name)
+ 
   return name
 
 def writeMessage(sheet,status, msg, idx):
@@ -178,12 +182,13 @@ def transferToDBBrewery(sheet,drive,values):
     name_eng = name_eng.title()
     img_name = name_eng.replace(" ","_")
 
-    img_name = downloadImage(drive,img_name,img_url)
+    img_name = downloadImage(drive,img_name,img_url,720)
 
     if checkImageExist('brewery/',img_name) == False:
       deleteImg(img_name)
       status = 'X'
       msg = "Maybe Img File already exist"
+      Log(msg)
       writeMessage(sheet,status,msg, cell_idx)
       idx += 1
       continue
@@ -273,14 +278,14 @@ def transferToDBAlchol(sheet,drive,values):
     img_name = name_eng.replace(" ","_")
     remove_background_img_name = img_name + "_remove"
 
-    main_img_name = downloadImage(drive,img_name,main_img_url)
-    remove_background_img_name = downloadImage(drive,remove_background_img_name,remove_background_img_url)
-
+    main_img_name = downloadImage(drive,img_name,main_img_url,720)
+    remove_background_img_name = downloadImage(drive,remove_background_img_name,remove_background_img_url,276)
 
     if checkImageExist('alchol/',main_img_name) == False:
       deleteImg(main_img_name)
       status = 'X'
       msg = "Maybe Main Img File already exist"
+      Log(msg)
       writeMessage(sheet,status,msg, cell_idx)
       idx += 1
       continue
@@ -289,6 +294,7 @@ def transferToDBAlchol(sheet,drive,values):
       deleteImg(remove_background_img_name)
       status = 'X'
       msg = "Maybe Remove Background Img File already exist"
+      Log(msg)
       writeMessage(sheet,status,msg, cell_idx)
       idx += 1
       continue
@@ -337,6 +343,7 @@ def transferToDBAlchol(sheet,drive,values):
       'brewery_name' : brewery_name,
     }
     response = requestToServer(obj)
+
     if response['status'] == True and \
        uploadToS3('alchol/',main_img_name) == True and \
        uploadToS3('alchol/',remove_background_img_name) == True:
@@ -377,7 +384,7 @@ def getRange(sheet):
 
   try :
     start_row = sheet.values().get(spreadsheetId=SPREADSHEET_ID[WHICH],
-                                    range=start_range).execute().get('values',[])[0][0]
+                                    range=start_range).execute().get('values',[])[0]
   except IndexError :
     Error("enter start row")
 
@@ -385,11 +392,14 @@ def getRange(sheet):
 
   try : 
     finish_row = sheet.values().get(spreadsheetId=SPREADSHEET_ID[WHICH],
-                                    range=finish_range).execute().get('values',[])[0][0]
+                                    range=finish_range).execute().get('values',[])[0]
   except IndexError :
     Error("enter finish row")
 
-  if start_row > finish_row :
+  start_row = ''.join(start_row)
+  finish_row = ''.join(finish_row)
+
+  if int(start_row) > int(finish_row) :
     Error("Start row and finish row error")
 
   if WHICH == BREWERY:
